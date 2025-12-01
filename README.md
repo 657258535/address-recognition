@@ -79,6 +79,7 @@
 ```
 address-recognition/
 ├── index.html      # 主页面文件
+├── address_recognition.js  # 核心识别逻辑文件
 ├── README.md       # 项目说明文件
 ├── LICENSE         # 许可证文件
 └── .gitattributes  # Git属性配置
