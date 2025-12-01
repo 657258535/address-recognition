@@ -79,6 +79,7 @@ function extractContactInfo(text) {
     result.address = result.address.trim().replace(/\s+/g, ' ');
     // 8. 替换姓名里面的"姓名"和地址里面的"地址"
     result.name = result.name.replace(/姓名/g, '');
+    result.name = result.name.replace(/收件人/g, '');
     result.address = result.address.replace(/地址/g, '');
     return result;
 }
