@@ -8,6 +8,8 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- 引入Font Awesome -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+  <!-- 引入地址识别核心函数 -->
+  <script src="address_recognition.js"></script>
   
   <!-- 自定义配置 -->
   <script>
@@ -90,11 +92,30 @@
       .code-comment-visible {
         @apply text-code-comment !important;
       }
+      /* 提示消息样式 */
+      .toast {
+        @apply fixed right-4 top-4 px-6 py-3 rounded-lg shadow-lg transform transition-transform duration-300 ease-in-out z-50 flex items-center gap-2;
+      }
+      .toast-success {
+        @apply bg-success/90 text-white;
+      }
+      .toast-error {
+        @apply bg-red-500/90 text-white;
+      }
     }
   </style>
 </head>
 
 <body class="bg-gray-50 min-h-screen font-inter text-dark">
+  <!-- 右上角提示消息组件 -->
+  <div id="successToast" class="toast toast-success translate-x-full">
+    <i class="fa fa-check-circle"></i>
+    <span id="successMessage">识别成功！</span>
+  </div>
+  <div id="errorToast" class="toast toast-error translate-x-full">
+    <i class="fa fa-exclamation-circle"></i>
+    <span id="errorMessage">识别失败！</span>
+  </div>
   <!-- 页面容器 -->
   <div class="container mx-auto px-4 py-8 md:py-16 max-w-5xl">
     <!-- 头部标题 -->
@@ -730,6 +751,25 @@
       return result;
     }
 
+    // 显示提示消息的函数
+    function showToast(type, message) {
+      // 隐藏所有提示
+      document.getElementById('successToast').classList.add('translate-x-full');
+      document.getElementById('errorToast').classList.add('translate-x-full');
+      
+      // 显示指定类型的提示
+      const toast = document.getElementById(type === 'success' ? 'successToast' : 'errorToast');
+      const messageElement = document.getElementById(type === 'success' ? 'successMessage' : 'errorMessage');
+      
+      messageElement.textContent = message;
+      toast.classList.remove('translate-x-full');
+      
+      // 3秒后自动隐藏
+      setTimeout(() => {
+        toast.classList.add('translate-x-full');
+      }, 3000);
+    }
+    
     // 页面交互逻辑
     document.addEventListener('DOMContentLoaded', function() {
       const inputText = document.getElementById('inputText');
@@ -746,7 +786,7 @@
         const text = inputText.value.trim();
         
         if (!text) {
-          alert('请输入待识别的文本');
+          showToast('error', '请输入待识别的文本');
           return;
         }
 
@@ -776,6 +816,15 @@
               item.element.classList.remove('text-gray-400', 'italic');
             }
           });
+          
+          // 判断识别结果
+          if (result.name && result.phone && result.address) {
+            showToast('success', '识别成功！');
+          } else if (result.name || result.phone || result.address) {
+            showToast('warning', '部分信息识别成功！');
+          } else {
+            showToast('error', '识别失败，请检查输入格式！');
+          }
         }, 300);
       });
 
@@ -788,14 +837,10 @@
         const copyText = `姓名：${name}\n手机号：${phone}\n地址：${address}`;
         
         navigator.clipboard.writeText(copyText).then(() => {
-          // 显示复制成功提示
-          copyToast.classList.remove('translate-x-full');
-          setTimeout(() => {
-            copyToast.classList.add('translate-x-full');
-          }, 2000);
+          showToast('success', '复制成功！');
         }).catch(err => {
           console.error('复制失败:', err);
-          alert('复制失败，请手动复制');
+          showToast('error', '复制失败，请手动复制！');
         });
       });
 
