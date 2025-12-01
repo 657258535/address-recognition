@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>智能地址识别工具</title>
+  <!-- 引入Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- 引入Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css" rel="stylesheet">
+  
+  <!-- 自定义配置 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#3B82F6',
+            secondary: '#6366F1',
+            neutral: '#F8FAFC',
+            dark: '#1E293B',
+            success: '#10B981',
+            code: {
+              bg: '#1E293B',
+              text: '#E2E8F0',       // 主文本色 - 浅灰，提高对比度
+              comment: '#94A3B8',    // 注释色 - 中等灰色
+              keyword: '#818CF8',    // 关键字 - 紫色
+              string: '#A78BFA',     // 字符串 - 亮紫色（原#60A5FA可能太暗）
+              function: '#C084FC',   // 函数名 - 亮粉色
+              variable: '#FBBF24',   // 变量 - 黄色
+              number: '#F87171'      // 数字 - 红色
+            }
+          },
+          fontFamily: {
+            inter: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['Consolas', 'Monaco', 'monospace']
+          },
+          boxShadow: {
+            'card': '0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.02)',
+            'hover': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            'code': '0 4px 30px rgba(0, 0, 0, 0.3)'
+          }
+        },
+      }
+    }
+  </script>
+  
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto {
+        content-visibility: auto;
+      }
+      .input-focus {
+        @apply focus:ring-2 focus:ring-primary/30 focus:border-primary focus:outline-none;
+      }
+      .btn-gradient {
+        @apply bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90;
+      }
+      .card-transition {
+        @apply transition-all duration-300 ease-in-out;
+      }
+      .code-line {
+        @apply flex items-start;
+      }
+      .code-line-number {
+        @apply w-10 text-right pr-4 text-code-comment select-none;
+      }
+      .code-content {
+        @apply flex-1;
+      }
+      /* 新增：确保代码文本清晰可见的工具类 */
+      .code-text-visible {
+        @apply text-code-text !important;
+      }
+      .code-keyword-visible {
+        @apply text-code-keyword !important;
+      }
+      .code-string-visible {
+        @apply text-code-string !important;
+      }
+      .code-function-visible {
+        @apply text-code-function !important;
+      }
+      .code-variable-visible {
+        @apply text-code-variable !important;
+      }
+      .code-number-visible {
+        @apply text-code-number !important;
+      }
+      .code-comment-visible {
+        @apply text-code-comment !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen font-inter text-dark">
+  <!-- 页面容器 -->
+  <div class="container mx-auto px-4 py-8 md:py-16 max-w-5xl">
+    <!-- 头部标题 -->
+    <header class="mb-10 text-center">
+      <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+        <i class="fa fa-map-marker-alt text-2xl text-primary"></i>
+      </div>
+      <h1 class="text-[clamp(1.75rem,4vw,2.5rem)] font-bold text-dark mb-3">智能地址识别工具</h1>
+      <p class="text-gray-600 max-w-2xl mx-auto">
+        输入包含姓名、手机号、地址的混合文本，系统将自动识别并提取关键信息
+      </p>
+    </header>
+    
+    <!-- 主内容区 -->
+    <div class="grid grid-cols-1 gap-8">
+      <!-- 输入卡片 -->
+      <div class="bg-white rounded-xl p-6 md:p-8 shadow-card card-transition hover:shadow-hover">
+        <div class="space-y-6">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2 flex items-center">
+              <i class="fa fa-file-alt text-primary mr-2"></i>输入文本
+            </label>
+            <textarea 
+              id="inputText" 
+              rows="5" 
+              placeholder="请输入或粘贴包含姓名、手机号、地址的文本，例如：邵辉(拒收到付) 13800138000 江苏省南通市启东市 吕四港镇十四总大众工业园 3栋5楼西电梯售后组"
+              class="w-full px-4 py-3 border border-gray-300 rounded-lg input-focus transition-all resize-none"
+            ></textarea>
+            <p class="text-xs text-gray-400 mt-1 italic">支持格式：姓名(备注) 手机号 地址（多空格分割也可识别）</p>
+          </div>
+          
+          <div class="pt-2">
+            <button 
+              id="extractBtn" 
+              class="w-full btn-gradient text-white font-medium py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/30"
+            >
+              <i class="fa fa-magic"></i>
+              <span>开始识别</span>
+            </button>
+          </div>
+          
+          <!-- 示例文本 -->
+          <div class="mt-4 pt-4 border-t border-gray-100">
+            <p class="text-sm text-gray-500 mb-2">示例文本（点击自动填充）：</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button 
+                class="text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-left"
+                onclick="fillExample('邵辉(拒收到付) 13800138000 江苏省南通市启东市 吕四港镇十四总大众工业园 3栋5楼西电梯售后组')"
+              >
+                邵辉(拒收到付) 13800138000...
+              </button>
+              <button 
+                class="text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-left"
+                onclick="fillExample('邵辉(拒收到付) 江苏省南通市启东市 吕四港镇十四总大众工业园 3栋5楼西电梯售后组 13800138000')"
+              >
+                邵辉(拒收到付) 13800138000...
+              </button>
+              <button 
+                class="text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-left"
+                onclick="fillExample('张三 13987654321 广东省深圳市南山区科技园12栋3单元501室')"
+              >
+                张三 13987654321 广东省深圳市...
+              </button>
+              <button 
+                class="text-sm px-3 py-2 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors text-left"
+                onclick="fillExample('张三13987654321广东省深圳市南山区科技园12栋3单元501室')"
+              >
+                张三 13987654321 广东省深圳市...
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 结果展示卡片 -->
+      <div id="resultCard" class="bg-white rounded-xl p-6 md:p-8 shadow-card card-transition hover:shadow-hover hidden">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-semibold text-dark flex items-center">
+            <i class="fa fa-search text-primary mr-2"></i>识别结果
+          </h2>
+          <button id="copyBtn" class="text-primary hover:text-primary/80 transition-colors flex items-center gap-1 text-sm">
+            <i class="fa fa-copy"></i>
+            <span>复制结果</span>
+          </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- 姓名 -->
+          <div class="space-y-2">
+            <label class="block text-xs font-medium text-gray-500">姓名</label>
+            <div id="resultName" class="p-3 bg-gray-50 rounded-lg border border-gray-100 min-h-[60px] flex items-center">
+              <span class="text-gray-400 italic">识别中...</span>
+            </div>
+          </div>
+          
+          <!-- 手机号 -->
+          <div class="space-y-2">
+            <label class="block text-xs font-medium text-gray-500">手机号</label>
+            <div id="resultPhone" class="p-3 bg-gray-50 rounded-lg border border-gray-100 min-h-[60px] flex items-center">
+              <span class="text-gray-400 italic">识别中...</span>
+            </div>
+          </div>
+          
+          <!-- 地址 -->
+          <div class="space-y-2 md:col-span-3">
+            <label class="block text-xs font-medium text-gray-500">地址</label>
+            <div id="resultAddress" class="p-3 bg-gray-50 rounded-lg border border-gray-100 min-h-[60px] flex items-center">
+              <span class="text-gray-400 italic">识别中...</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 复制成功提示 -->
+        <div id="copyToast" class="fixed top-4 right-4 bg-success text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 transform translate-x-full transition-transform duration-300 z-50">
+          <i class="fa fa-check-circle"></i>
+          <span>复制成功！</span>
+        </div>
+      </div>
+
+      <!-- 代码编辑器视图 - 修复了颜色对比度问题 -->
+      <div class="bg-code-bg rounded-xl p-6 md:p-8 shadow-code card-transition overflow-hidden">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-xl font-semibold text-code-text flex items-center">
+            <i class="fa fa-code text-primary mr-2"></i>核心识别函数代码
+          </h2>
+          <div class="flex gap-2">
+            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+            <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+            <span class="w-3 h-3 rounded-full bg-green-500"></span>
+          </div>
+        </div>
+        
+        <!-- 代码内容区（修复了语法高亮颜色，确保所有字符可见） -->
+        <div class="font-mono text-sm overflow-x-auto text-code-text">
+          <div class="code-line">
+            <span class="code-line-number">1</span>
+            <span class="code-content">
+              <span class="code-keyword-visible">function</span> <span class="code-function-visible">extractContactInfo</span>(<span class="code-variable-visible">text</span>) {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">2</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">result</span> = {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">3</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;name: <span class="code-string-visible">''</span>,</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">4</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;phone: <span class="code-string-visible">''</span>,</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">5</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;address: <span class="code-string-visible">''</span></span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">6</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;};</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">7</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">8</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">cleanText</span> = text.trim();</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">9</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">if</span> (!cleanText) <span class="code-keyword-visible">return</span> result;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">10</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">11</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">phoneRegex</span> = <span class="code-string-visible">/1[3-9]\d{9}/g</span>;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">12</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">phoneMatches</span> = cleanText.match(phoneRegex);</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">13</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">if</span> (phoneMatches && phoneMatches[0]) {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">14</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result.phone = phoneMatches[0];</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">15</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;}</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">16</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">17</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">textWithoutSpecial</span> = cleanText</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">18</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.replace(<span class="code-string-visible">/\([^)]*\)/g</span>, <span class="code-string-visible">''</span>)</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">19</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.replace(<span class="code-string-visible">/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g</span>, <span class="code-string-visible">''</span>)</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">20</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.trim();</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">21</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">22</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">validParts</span> = textWithoutSpecial.split(<span class="code-string-visible">' '</span>).filter(part => part.trim() !== <span class="code-string-visible">''</span>);</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">23</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">24</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;validParts.forEach(<span class="code-variable-visible">part</span> => {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">25</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">if</span> (phoneRegex.test(part)) <span class="code-keyword-visible">return</span>;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">26</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">27</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">isName</span> = <span class="code-string-visible">/^[\u4e00-\u9fa5a-zA-Z]+$/</span>.test(part) && part.length >= <span class="code-number-visible">1</span> && part.length <= <span class="code-number-visible">10</span>;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">28</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">isAddress</span> = <span class="code-string-visible">/[\u4e00-\u9fa50-9]/</span>.test(part);</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">29</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">30</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">if</span> (isName && !result.name) {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">31</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result.name = part;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">32</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">33</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">else</span> <span class="code-keyword-visible">if</span> (isAddress) {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">34</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result.address = result.address </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">35</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;? <span class="code-string-visible">`${result.address} ${part}`</span> </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">36</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: part;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">37</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">38</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;});</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">39</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">40</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">if</span> (!result.name) {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">41</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">const</span> <span class="code-variable-visible">nameMatch</span> = cleanText.match(<span class="code-string-visible">/^[\u4e00-\u9fa5]{2,4}/</span>);</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">42</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">if</span> (nameMatch) {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">43</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result.name = nameMatch[0];</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">44</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result.address = result.address.replace(result.name, <span class="code-string-visible">''</span>).trim();</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">45</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">46</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;}</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">47</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">48</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">if</span> (!result.address) {</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">49</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">let</span> <span class="code-variable-visible">addressText</span> = cleanText</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">50</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.replace(<span class="code-string-visible">/\([^)]*\)/g</span>, <span class="code-string-visible">''</span>)</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">51</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.replace(result.phone, <span class="code-string-visible">''</span>)</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">52</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.replace(result.name, <span class="code-string-visible">''</span>)</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">53</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;.trim();</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">54</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;result.address = addressText.replace(<span class="code-string-visible">/\s+/g</span>, <span class="code-string-visible">' '</span>);</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">55</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;}</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">56</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">57</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;result.address = result.address.trim().replace(<span class="code-string-visible">/\s+/g</span>, <span class="code-string-visible">' '</span>);</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">58</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">59</span>
+            <span class="code-content">
+              &nbsp;&nbsp;&nbsp;&nbsp;<span class="code-keyword-visible">return</span> result;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">60</span>
+            <span class="code-content">
+              }</span>
+          </div>
+
+          <!-- 输出示例分隔线 -->
+          <div class="code-line mt-6 pt-6 border-t border-gray-700">
+            <span class="code-line-number"></span>
+            <span class="code-content code-comment-visible">// ================================= 输出示例 =================================</span>
+          </div>
+          
+          <!-- 示例1 -->
+          <div class="code-line mt-4">
+            <span class="code-line-number">61</span>
+            <span class="code-content">
+              <span class="code-keyword-visible">const</span> <span class="code-variable-visible">input1</span> = <span class="code-string-visible">'邵辉(拒收到付) 13800138000 江苏省南通市启东市 吕四港镇十四总大众工业园 3栋5楼西电梯售后组'</span>;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">62</span>
+            <span class="code-content">
+              <span class="code-keyword-visible">const</span> <span class="code-variable-visible">output1</span> = <span class="code-function-visible">extractContactInfo</span>(input1);</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">63</span>
+            <span class="code-content">
+              <span class="code-comment-visible">// 输出结果1：</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">64</span>
+            <span class="code-content">
+              <span class="code-comment-visible">// {</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">65</span>
+            <span class="code-content">
+              <span class="code-comment-visible">//   name: '邵辉',</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">66</span>
+            <span class="code-content">
+              <span class="code-comment-visible">//   phone: '13800138000',</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">67</span>
+            <span class="code-content">
+              <span class="code-comment-visible">//   address: '江苏省南通市启东市 吕四港镇十四总大众工业园 3栋5楼西电梯售后组'</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">68</span>
+            <span class="code-content">
+              <span class="code-comment-visible">// }</span>
+            </span>
+          </div>
+          
+          <!-- 示例2 -->
+          <div class="code-line mt-4">
+            <span class="code-line-number">69</span>
+            <span class="code-content">
+              <span class="code-comment-visible">// 输入示例2：简洁混合文本</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">70</span>
+            <span class="code-content">
+              <span class="code-keyword-visible">const</span> <span class="code-variable-visible">input2</span> = <span class="code-string-visible">'张三 13987654321 广东省深圳市南山区科技园12栋3单元501室'</span>;</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">71</span>
+            <span class="code-content">
+              <span class="code-keyword-visible">const</span> <span class="code-variable-visible">output2</span> = <span class="code-function-visible">extractContactInfo</span>(input2);</span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">72</span>
+            <span class="code-content">
+              <span class="code-comment-visible">// 输出结果2：</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">73</span>
+            <span class="code-content">
+              <span class="code-comment-visible">// {</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">74</span>
+            <span class="code-content">
+              <span class="code-comment-visible">//   name: '张三',</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">75</span>
+            <span class="code-content">
+              <span class="code-comment-visible">//   phone: '13987654321',</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">76</span>
+            <span class="code-content">
+              <span class="code-comment-visible">//   address: '广东省深圳市南山区科技园12栋3单元501室'</span>
+            </span>
+          </div>
+          <div class="code-line">
+            <span class="code-line-number">77</span>
+            <span class="code-content">
+              <span class="code-comment-visible">// }</span>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- 页脚 -->
+    <footer class="mt-16 text-center text-sm text-gray-500">
+      <p>© 2025 智能地址识别工具 | 设计与开发</p>
+    </footer>
+  </div>
+
+  <!-- 核心识别函数 -->
+  <script>
+    /**
+     * 智能识别文本中的姓名、手机号、地址信息（优化括号备注和多空格地址识别）
+     * @param {string} text - 待识别的文本（包含姓名、电话、地址的混合文本）
+     * @returns {Object} 识别结果 { name: string, phone: string, address: string }
+     */
+    function extractContactInfo(text) {
+      const result = {
+        name: '',
+        phone: '',
+        address: ''
+      };
+
+      const cleanText = text.trim();
+      if (!cleanText) return result;
+
+      // 1. 识别手机号（11位手机号正则）
+      const phoneRegex = /1[3-9]\d{9}/g;
+      const phoneMatches = cleanText.match(phoneRegex);
+      if (phoneMatches && phoneMatches[0]) {
+        result.phone = phoneMatches[0];
+      }
+
+      // 2. 预处理：过滤特殊字符（关键优化：移除括号及内容，避免干扰姓名识别）
+      const textWithoutSpecial = cleanText
+        .replace(/\([^)]*\)/g, '') // 移除所有括号及括号内内容（如“(拒收到付)”）
+        .replace(/[^\u4e00-\u9fa5a-zA-Z0-9\s]/g, '') // 保留中文、英文、数字、空格，移除其他特殊字符
+        .trim();
+
+      // 3. 按空格分割为片段，过滤空片段
+      const validParts = textWithoutSpecial.split(' ').filter(part => part.trim() !== '');
+
+      // 4. 识别姓名和地址（核心优化：地址判定规则）
+      validParts.forEach(part => {
+        // 跳过手机号片段
+        if (phoneRegex.test(part)) return;
+
+        // 姓名规则：1-10位，仅包含中文/英文（优先提取）
+        const isName = /^[\u4e00-\u9fa5a-zA-Z]+$/.test(part) && part.length >= 1 && part.length <= 10;
+        
+        // 地址规则：排除手机号和姓名后，包含中文/数字和省 市 区 县 镇 村 园 栋 室 的片段均视为地址（放宽长度限制）
+        const isAddress = /[\u4e00-\u9fa50-9]/.test(part) && /[省市区县镇村园栋室]/.test(part);
+
+        // 优先填充姓名（只取第一个符合条件的姓名片段）
+        if (isName && !result.name) {
+          result.name = part;
+        }
+        // 省市区县镇村园 填充地址（所有符合条件的地址片段拼接）
+        else if (isAddress) {
+          result.address = result.address 
+            ? `${result.address} ${part}` 
+            : part;
+        }
+      });
+
+      // 5. 兜底：从原始文本开头提取姓名（处理无空格/姓名被包裹的场景）
+      if (!result.name) {
+        // 匹配开头2-4字中文（中文姓名常见长度）
+        const nameMatch = cleanText.match(/^[\u4e00-\u9fa5]{2,4}/);
+        if (nameMatch) {
+          result.name = nameMatch[0];
+          // 从地址中移除姓名（避免地址包含重复姓名）
+          result.address = result.address.replace(result.name, '').trim();
+        }
+      }
+
+      // 6. 最终兜底：若地址仍为空，移除手机号和姓名后剩余内容作为地址
+      if (!result.address) {
+        let addressText = cleanText
+          .replace(/\([^)]*\)/g, '') // 再次过滤括号
+          .replace(result.phone, '')
+          .replace(result.name, '')
+          .trim();
+        result.address = addressText.replace(/\s+/g, ' '); // 合并多余空格
+      }
+
+      // 7. 清理地址：移除首尾多余空格和可能残留的空字符
+      result.address = result.address.trim().replace(/\s+/g, ' ');
+
+      return result;
+    }
+
+    // 页面交互逻辑
+    document.addEventListener('DOMContentLoaded', function() {
+      const inputText = document.getElementById('inputText');
+      const extractBtn = document.getElementById('extractBtn');
+      const resultCard = document.getElementById('resultCard');
+      const resultName = document.getElementById('resultName');
+      const resultPhone = document.getElementById('resultPhone');
+      const resultAddress = document.getElementById('resultAddress');
+      const copyBtn = document.getElementById('copyBtn');
+      const copyToast = document.getElementById('copyToast');
+
+      // 识别按钮点击事件
+      extractBtn.addEventListener('click', function() {
+        const text = inputText.value.trim();
+        
+        if (!text) {
+          alert('请输入待识别的文本');
+          return;
+        }
+
+        // 显示加载状态
+        resultName.innerHTML = '<span class="text-gray-400 italic">识别中...</span>';
+        resultPhone.innerHTML = '<span class="text-gray-400 italic">识别中...</span>';
+        resultAddress.innerHTML = '<span class="text-gray-400 italic">识别中...</span>';
+        resultCard.classList.remove('hidden');
+        
+        setTimeout(() => {
+          const result = extractContactInfo(text);
+          
+          // 填充结果
+          resultName.textContent = result.name || '未识别到';
+          resultPhone.textContent = result.phone || '未识别到';
+          resultAddress.textContent = result.address || '未识别到';
+          
+          // 为未识别到的结果添加样式
+          [
+            { element: resultName, value: result.name },
+            { element: resultPhone, value: result.phone },
+            { element: resultAddress, value: result.address }
+          ].forEach(item => {
+            if (!item.value) {
+              item.element.classList.add('text-gray-400', 'italic');
+            } else {
+              item.element.classList.remove('text-gray-400', 'italic');
+            }
+          });
+        }, 300);
+      });
+
+      // 复制结果功能
+      copyBtn.addEventListener('click', function() {
+        const name = resultName.textContent;
+        const phone = resultPhone.textContent;
+        const address = resultAddress.textContent;
+        
+        const copyText = `姓名：${name}\n手机号：${phone}\n地址：${address}`;
+        
+        navigator.clipboard.writeText(copyText).then(() => {
+          // 显示复制成功提示
+          copyToast.classList.remove('translate-x-full');
+          setTimeout(() => {
+            copyToast.classList.add('translate-x-full');
+          }, 2000);
+        }).catch(err => {
+          console.error('复制失败:', err);
+          alert('复制失败，请手动复制');
+        });
+      });
+
+      // 按下Enter键触发识别
+      inputText.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          extractBtn.click();
+        }
+      });
+    });
+
+    // 填充示例文本并自动触发识别
+    function fillExample(text) {
+      const inputText = document.getElementById('inputText');
+      const extractBtn = document.getElementById('extractBtn');
+      
+      // 填充文本
+      inputText.value = text;
+      
+      // 添加视觉反馈
+      inputText.classList.add('border-primary');
+      setTimeout(() => {
+        inputText.classList.remove('border-primary');
+      }, 500);
+      
+      // 自动触发识别
+      extractBtn.click();
+    }
+  </script>
+</body>
+</html>
