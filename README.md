@@ -35,6 +35,8 @@
 
 3. 打开 `index.html` 文件即可使用
 
+4. 访问 `https://657258535.github.io/address-recognition/` 即可使用
+
 ## 💡 使用方法
 
 1. 在输入框中输入包含姓名、手机号和地址的文本，例如：
