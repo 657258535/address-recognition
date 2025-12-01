@@ -4,6 +4,8 @@
  * @returns {Object} 识别结果 { name: string, phone: string, address: string }
  */
 function extractContactInfo(text) {
+    //换行替换成空格
+    text = text.replace(/\n+/g, ' ');
     const result = {
     name: '',
     phone: '',
@@ -75,6 +77,8 @@ function extractContactInfo(text) {
 
     // 7. 清理地址：移除首尾多余空格和可能残留的空字符
     result.address = result.address.trim().replace(/\s+/g, ' ');
-
+    // 8. 替换姓名里面的"姓名"和地址里面的"地址"
+    result.name = result.name.replace(/姓名/g, '');
+    result.address = result.address.replace(/地址/g, '');
     return result;
 }
