@@ -25,7 +25,7 @@
 
 1. 克隆项目到本地
    ```bash
-   git clone https://github.com/yourusername/address-recognition.git
+   git clone https://github.com/657258535/address-recognition.git
    ```
 
 2. 进入项目目录
